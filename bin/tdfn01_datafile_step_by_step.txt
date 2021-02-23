@@ -1,0 +1,6 @@
+Model_edge	36
+Fracture_increment:	1
+min_R	30
+max_R	30
+P32_total	P32_connected	P30	Ratio_of_P32	Percolation_parameter_1	Percolation_parameter_2	Percolation_parameter_3	Percolation_parameter_4	Percolation_parameter_5	n_I	Percolation_probability	Correlation_length_over_L	Max_gyration_radius_over_L	P30_largest_cluster	P32_largest_cluster	P30_connected	Ratio_of_P30
+0.0385802	0.0385802	2.14335e-05	1	1.15472	1.15472	0.28868	0.28868	1.15472	0	1	0	0	0	0	2.14335e-05	1
