@@ -17,17 +17,45 @@ public:
     std::vector<std::vector<std::pair<Vector3d, Vector3d>>> Flux_rate_2D;
     ///<store the coordinates (x,y,z) that represent an element (usually it is the center of the element), and the flux rate vector at this point
 
+    std::vector<std::vector<std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>>>> Flux_rate_Bound_in;
+    std::vector<std::vector<std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>>>> Flux_rate_Bound_out;
+    ///< 2d and 3d, (pnt, q)
+
     //std::vector<std::vector<RowVector6d>> pd_N_pd_x;
     // also the gridient
 
     //std::vector<std::vector<RowVector6d>> pd_N_pd_y;
 
 public:
-    FEM_DFN(DFN::DFN_mesh DFN_mesh, DFN::Domain dom);
-    void Assemble_matrix(DFN::DFN_mesh DFN_mesh, const double Kper, double *K_overall, double *F_overall);
-    void Matlab_FEM_head_result(string FileKey, DFN::DFN_mesh DFN_mesh, double *X_overall, DFN::Domain dom);
-    void Calculate_flux_rate(DFN::DFN_mesh DFN_mesh, DFN::Domain dom, double *X_overall);
-    void Verify_in_and_out_flux(DFN::DFN_mesh DFN_mesh, double *X_overall);
+    FEM_DFN(DFN::DFN_mesh DFN_mesh,
+            DFN::Domain dom);
+
+    void Assemble_matrix(DFN::DFN_mesh DFN_mesh,
+                         const double Kper,
+                         double *K_overall,
+                         double *F_overall);
+
+    void Matlab_FEM_head_result(string FileKey,
+                                DFN::DFN_mesh DFN_mesh,
+                                double *X_overall,
+                                DFN::Domain dom);
+
+    void Calculate_flux_rate(DFN::DFN_mesh DFN_mesh,
+                             DFN::Domain dom,
+                             double *X_overall);
+                             
+    void Verify_in_and_out_flux(DFN::DFN_mesh
+                                    DFN_mesh,
+                                double *X_overall);
+
+    void Calculate_flux_of_A_Boun_ele(DFN::DFN_mesh DFN_mesh,
+                                      double *X_overall,
+                                      double K_coe,
+                                      size_t s_ifrac,
+                                      size_t s_jele,
+                                      size_t EdgeNO,
+                                      std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>> &SF,
+                                      size_t NumOfPnt_q);
 };
 
 //*******************************************
@@ -159,8 +187,8 @@ inline FEM_DFN::FEM_DFN(DFN::DFN_mesh DFN_mesh, DFN::Domain dom)
     */
     //dgemv_("N", DFN_mesh.Matrix_dimesions, DFN_mesh.Matrix_dimesions, 1, K_overall, /*LDA*/ DFN_mesh.Matrix_dimesions, X_overall, DFN_mesh.Matrix_dimesions /*INCX*/, 1, F_overall, DFN_mesh.Matrix_dimesions);
     Calculate_flux_rate(DFN_mesh, dom, F_overall);
-    Matlab_FEM_head_result("tdfn_color_head.m", DFN_mesh, F_overall, dom);
     Verify_in_and_out_flux(DFN_mesh, F_overall);
+    Matlab_FEM_head_result("tdfn_color_head.m", DFN_mesh, F_overall, dom);
     delete[] ipiv;
     ipiv = NULL;
     delete[] F_overall;
@@ -591,10 +619,60 @@ inline void FEM_DFN::Matlab_FEM_head_result(string FileKey, DFN::DFN_mesh DFN_me
             }
         }
         oss << "];\n";
-        oss << "quiver3(q_vector_" << i + 1 << "(:,1), q_vector_" << i + 1 << "(:,2), q_vector_" << i + 1 << "(:,3), q_vector_" << i + 1 << "(:,4), q_vector_" << i + 1 << "(:,5), q_vector_" << i + 1 << "(:,6));\n\n";
+        oss << "quiver3(q_vector_" << i + 1 << "(:,1), q_vector_" << i + 1 << "(:,2), q_vector_" << i + 1 << "(:,3), q_vector_" << i + 1 << "(:,4), q_vector_" << i + 1 << "(:,5), q_vector_" << i + 1 << "(:,6), 'AutoScale','off');\n\n";
         oss << "hold on;\n";
     };
-    oss << "%show frac pressure contour and flow rate vectors in 2D\n";
+
+    oss << "\n%%*****flux rate vector on boundary_3D***\n";
+    for (size_t i = 0; i < Flux_rate_Bound_in.size(); ++i)
+    {
+        oss << "q_vector_Bound_3D_in" << i + 1 << "=[";
+        for (size_t j = 0; j < Flux_rate_Bound_in[i].size(); ++j)
+        {
+            for (size_t k = 0; k < Flux_rate_Bound_in[i][j].size(); ++k)
+            {
+                for (size_t yj = 0; yj < 3; ++yj)
+                    oss << Flux_rate_Bound_in[i][j][k].second.first(yj) << ", ";
+                for (size_t yj = 0; yj < 3; ++yj)
+                {
+                    oss << Flux_rate_Bound_in[i][j][k].second.second(yj);
+                    if (yj == 2)
+                        oss << "; ";
+                    else
+                        oss << ", ";
+                }
+            }
+        }
+        oss << "];\n";
+        oss << "quiver3(q_vector_Bound_3D_in" << i + 1 << "(:,1), q_vector_Bound_3D_in" << i + 1 << "(:,2), q_vector_Bound_3D_in" << i + 1 << "(:,3), q_vector_Bound_3D_in" << i + 1 << "(:,4), q_vector_Bound_3D_in" << i + 1 << "(:,5), q_vector_Bound_3D_in" << i + 1 << "(:,6), 'r', 'AutoScale','off');\n\n";
+        oss << "hold on;\n";
+    }
+
+    for (size_t i = 0; i < Flux_rate_Bound_out.size(); ++i)
+    {
+        oss << "q_vector_Bound_3D_out" << i + 1 << "=[";
+        for (size_t j = 0; j < Flux_rate_Bound_out[i].size(); ++j)
+        {
+            for (size_t k = 0; k < Flux_rate_Bound_out[i][j].size(); ++k)
+            {
+                for (size_t yj = 0; yj < 3; ++yj)
+                    oss << Flux_rate_Bound_out[i][j][k].second.first(yj) << ", ";
+                for (size_t yj = 0; yj < 3; ++yj)
+                {
+                    oss << Flux_rate_Bound_out[i][j][k].second.second(yj);
+                    if (yj == 2)
+                        oss << "; ";
+                    else
+                        oss << ", ";
+                }
+            }
+        }
+        oss << "];\n";
+        oss << "quiver3(q_vector_Bound_3D_out" << i + 1 << "(:,1), q_vector_Bound_3D_out" << i + 1 << "(:,2), q_vector_Bound_3D_out" << i + 1 << "(:,3), q_vector_Bound_3D_out" << i + 1 << "(:,4), q_vector_Bound_3D_out" << i + 1 << "(:,5), q_vector_Bound_3D_out" << i + 1 << "(:,6), 'r', 'AutoScale','off');\n\n";
+        oss << "hold on;\n";
+    }
+
+    oss << "\n%show frac pressure contour and flow rate vectors in 2D\n";
 
     for (size_t i = 0; i < NO_frac; ++i)
     {
@@ -613,6 +691,8 @@ inline void FEM_DFN::Matlab_FEM_head_result(string FileKey, DFN::DFN_mesh DFN_me
 
         oss << "S_" << i + 1 << "= patch('Vertices', JXY_2D_" << i + 1 << ", 'Faces', JM_" << i + 1 << ", 'FaceVertexCData', Data_" << i + 1 << ", 'FaceColor', 'interp', 'EdgeAlpha', 0.2, 'facealpha', 0);\n";
         oss << "hold on;\n";
+
+        oss << "\n%%***flow rate vector 2d **************\n";
         oss << "q_vector_2d" << i + 1 << "=[";
         for (size_t j = 0; j < Flux_rate_2D[i].size(); ++j)
         {
@@ -628,8 +708,52 @@ inline void FEM_DFN::Matlab_FEM_head_result(string FileKey, DFN::DFN_mesh DFN_me
             }
         }
         oss << "];\n";
-        oss << "quiver3(q_vector_2d" << i + 1 << "(:,1), q_vector_2d" << i + 1 << "(:,2), q_vector_2d" << i + 1 << "(:,3), q_vector_2d" << i + 1 << "(:,4), q_vector_2d" << i + 1 << "(:,5), q_vector_2d" << i + 1 << "(:,6));\n\n";
+        oss << "quiver3(q_vector_2d" << i + 1 << "(:,1), q_vector_2d" << i + 1 << "(:,2), q_vector_2d" << i + 1 << "(:,3), q_vector_2d" << i + 1 << "(:,4), q_vector_2d" << i + 1 << "(:,5), q_vector_2d" << i + 1 << "(:,6), 'AutoScale','off');\n\n";
         oss << "hold on;\n";
+
+        oss << "\n%%***flow rate vector 2d BOUND **************\n";
+        oss << "q_vector_Bound_2d_in" << i + 1 << "=[";
+        for (size_t j = 0; j < Flux_rate_Bound_in[i].size(); ++j)
+        {
+            for (size_t k = 0; k < Flux_rate_Bound_in[i][j].size(); ++k)
+            {
+                for (size_t yj = 0; yj < 3; ++yj)
+                    oss << Flux_rate_Bound_in[i][j][k].first.first(yj) << ", ";
+                for (size_t yj = 0; yj < 3; ++yj)
+                {
+                    oss << Flux_rate_Bound_in[i][j][k].first.second(yj);
+                    if (yj == 2)
+                        oss << "; ";
+                    else
+                        oss << ", ";
+                }
+            }
+        }
+        oss << "];\n";
+        oss << "quiver3(q_vector_Bound_2d_in" << i + 1 << "(:,1), q_vector_Bound_2d_in" << i + 1 << "(:,2), q_vector_Bound_2d_in" << i + 1 << "(:,3), q_vector_Bound_2d_in" << i + 1 << "(:,4), q_vector_Bound_2d_in" << i + 1 << "(:,5), q_vector_Bound_2d_in" << i + 1 << "(:,6), 'r', 'AutoScale','off');\n\n";
+        oss << "hold on;\n";
+
+        oss << "q_vector_Bound_2d_out" << i + 1 << "=[";
+        for (size_t j = 0; j < Flux_rate_Bound_out[i].size(); ++j)
+        {
+            for (size_t k = 0; k < Flux_rate_Bound_out[i][j].size(); ++k)
+            {
+                for (size_t yj = 0; yj < 3; ++yj)
+                    oss << Flux_rate_Bound_out[i][j][k].first.first(yj) << ", ";
+                for (size_t yj = 0; yj < 3; ++yj)
+                {
+                    oss << Flux_rate_Bound_out[i][j][k].first.second(yj);
+                    if (yj == 2)
+                        oss << "; ";
+                    else
+                        oss << ", ";
+                }
+            }
+        }
+        oss << "];\n";
+        oss << "quiver3(q_vector_Bound_2d_out" << i + 1 << "(:,1), q_vector_Bound_2d_out" << i + 1 << "(:,2), q_vector_Bound_2d_out" << i + 1 << "(:,3), q_vector_Bound_2d_out" << i + 1 << "(:,4), q_vector_Bound_2d_out" << i + 1 << "(:,5), q_vector_Bound_2d_out" << i + 1 << "(:,6), 'r', 'AutoScale','off');\n\n";
+        oss << "hold on;\n";
+
         oss << "xlabel('x (m)');\nylabel('y (m)');\ntitle('head contour and flow rate vector (Fig. " << i + 1 << ")');\nhold on;\n";
         if (i == 0 && NO_frac != 1)
         {
@@ -975,50 +1099,350 @@ inline void FEM_DFN::Calculate_flux_rate(DFN::DFN_mesh DFN_mesh, DFN::Domain dom
 inline void FEM_DFN::Verify_in_and_out_flux(DFN::DFN_mesh DFN_mesh, double *X_overall)
 {
     double Q_in = 0, Q_out = 0;
-    double q_in = 0, q_out = 0;
+    double q_in_avg = 0, q_out_avg = 0;
+    double q_in_overall = 0, q_out_overall = 0;
     double length_in = 0, length_out = 0;
-    cout << "in: \n";
+    //size_t no_ele_in = 0, no_ele_out = 0;
+
+    Flux_rate_Bound_in.resize(DFN_mesh.Inlet.size());
+    size_t NumOfPnt_q = 7;
     for (size_t i = 0; i < DFN_mesh.Inlet.size(); ++i)
     {
-        std::map<std::pair<size_t, size_t>, double>::iterator inlet_A = DFN_mesh.Inlet[i].begin();
-
+        std::map<std::pair<size_t, size_t>, std::pair<Vector6d, Vector6d>>::iterator inlet_A = DFN_mesh.Inlet[i].begin();
+        Flux_rate_Bound_in[i].resize(DFN_mesh.Inlet[i].size());
+        size_t jd = 0;
         while (inlet_A != DFN_mesh.Inlet[i].end())
         {
             size_t i_frac = inlet_A->first.first;
             size_t j_ele = inlet_A->first.second;
-            double edge_length = inlet_A->second;
-            Vector3d q_vector = Flux_rate[i_frac][j_ele].second;
-            double q = pow(pow(q_vector(0), 2) + pow(q_vector(1), 2) + pow(q_vector(2), 2), 0.5);
-            double Q_ele = q * edge_length;
+            size_t EdgNO = inlet_A->second.first(2);
+            std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>> SF(NumOfPnt_q);
+            Calculate_flux_of_A_Boun_ele(DFN_mesh, X_overall, 1, i_frac, j_ele, EdgNO, SF, NumOfPnt_q);
+            Flux_rate_Bound_in[i][jd] = SF;
+            jd++;
+
+            std::vector<Vector3d> q_vector(NumOfPnt_q);
+
+            for (size_t ju = 0; ju < NumOfPnt_q; ++ju)
+            {
+                q_vector[ju] = SF[ju].first.second;
+                q_vector[ju](2) = 0;
+            }
+
+            Vector3d line_seg_2D;
+            line_seg_2D << inlet_A->second.first(0) - inlet_A->second.first(3), inlet_A->second.first(1) - inlet_A->second.first(4), 0;
+            double edge_length = line_seg_2D.norm();
+
+            Vector3d norm_line_seg_2D;
+            norm_line_seg_2D << line_seg_2D(1), -line_seg_2D(0), 0;
+            norm_line_seg_2D.normalize();
+            double q_normal = 0;
+            for (size_t ju = 0; ju < NumOfPnt_q; ++ju)
+            {
+                double cosValNew = norm_line_seg_2D.dot(q_vector[ju]) / (norm_line_seg_2D.norm() * q_vector[ju].norm());
+                double angleNew = 0;
+                if (abs(cosValNew - 1) < 0.001)
+                {
+                    angleNew = 0;
+                }
+                else if (abs(cosValNew + 1) < 0.001)
+                {
+                    angleNew = 0;
+                }
+                else
+                    angleNew = acos(cosValNew) * 180. / M_PI;
+
+                if (abs(angleNew) > 90.)
+                {
+                    norm_line_seg_2D << -line_seg_2D(1), line_seg_2D(0), 0;
+                    cosValNew = norm_line_seg_2D.dot(q_vector[ju]) / (norm_line_seg_2D.norm() * q_vector[ju].norm());
+                    angleNew = acos(cosValNew) * 180. / M_PI;
+                    if (angleNew > 90.)
+                    {
+                        std::cout << "included angle between the flux rate vector and normal to trace should be less than 90 degrees!\n";
+                        exit(0);
+                    }
+                }
+
+                q_normal += q_vector[ju].norm() * cos(angleNew * M_PI / 180.);
+            }
+            q_in_overall += q_normal;
+            q_normal = q_normal / NumOfPnt_q;
+            q_in_avg += q_normal;
             length_in += edge_length;
+            double Q_ele = q_normal * edge_length;
             Q_in += Q_ele;
-            q_in += q;
-            cout << "element no: " << j_ele << ", Q: " << Q_ele << "; flux rate:" << q << "\n";
             inlet_A++;
         }
     }
-    cout << "\n\nout: \n";
+    ///////////////////////////////////////////////////////////////////
+    Flux_rate_Bound_out.resize(DFN_mesh.Outlet.size());
     for (size_t i = 0; i < DFN_mesh.Outlet.size(); ++i)
     {
-        std::map<std::pair<size_t, size_t>, double>::iterator outlet_A = DFN_mesh.Outlet[i].begin();
+        std::map<std::pair<size_t, size_t>, std::pair<Vector6d, Vector6d>>::iterator outlet_A = DFN_mesh.Outlet[i].begin();
+        Flux_rate_Bound_out[i].resize(DFN_mesh.Outlet[i].size());
+        size_t jd = 0;
         while (outlet_A != DFN_mesh.Outlet[i].end())
         {
             size_t i_frac = outlet_A->first.first;
             size_t j_ele = outlet_A->first.second;
-            double edge_length = outlet_A->second;
-            Vector3d q_vector = Flux_rate[i_frac][j_ele].second;
-            double q = pow(pow(q_vector(0), 2) + pow(q_vector(1), 2) + pow(q_vector(2), 2), 0.5);
-            double Q_ele = q * edge_length;
+            size_t EdgNO = outlet_A->second.first(2);
+            std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>> SF(NumOfPnt_q);
+            Calculate_flux_of_A_Boun_ele(DFN_mesh, X_overall, 1, i_frac, j_ele, EdgNO, SF, NumOfPnt_q);
+            Flux_rate_Bound_out[i][jd] = SF;
+            jd++;
+
+            std::vector<Vector3d> q_vector(NumOfPnt_q);
+
+            for (size_t ju = 0; ju < NumOfPnt_q; ++ju)
+            {
+                q_vector[ju] = SF[ju].first.second;
+                q_vector[ju](2) = 0;
+            }
+
+            Vector3d line_seg_2D;
+            line_seg_2D << outlet_A->second.first(0) - outlet_A->second.first(3), outlet_A->second.first(1) - outlet_A->second.first(4), 0;
+            double edge_length = line_seg_2D.norm();
+
+            Vector3d norm_line_seg_2D;
+            norm_line_seg_2D << line_seg_2D(1), -line_seg_2D(0), 0;
+            norm_line_seg_2D.normalize();
+            double q_normal = 0;
+            for (size_t ju = 0; ju < NumOfPnt_q; ++ju)
+            {
+                double cosValNew = norm_line_seg_2D.dot(q_vector[ju]) / (norm_line_seg_2D.norm() * q_vector[ju].norm());
+                double angleNew = 0;
+                if (abs(cosValNew - 1) < 0.001)
+                {
+                    angleNew = 0;
+                }
+                else if (abs(cosValNew + 1) < 0.001)
+                {
+                    angleNew = 0;
+                }
+                else
+                    angleNew = acos(cosValNew) * 180. / M_PI;
+
+                if (abs(angleNew) > 90.)
+                {
+                    norm_line_seg_2D << -line_seg_2D(1), line_seg_2D(0), 0;
+                    cosValNew = norm_line_seg_2D.dot(q_vector[ju]) / (norm_line_seg_2D.norm() * q_vector[ju].norm());
+                    angleNew = acos(cosValNew) * 180. / M_PI;
+                    if (angleNew > 90.)
+                    {
+                        std::cout << "included angle between the flux rate vector and normal to trace should be less than 90 degrees!\n";
+                        exit(0);
+                    }
+                }
+
+                q_normal += q_vector[ju].norm() * cos(angleNew * M_PI / 180.);
+            }
+            q_out_overall += q_normal;
+            q_normal = q_normal / NumOfPnt_q;
+            q_out_avg += q_normal;
             length_out += edge_length;
+            double Q_ele = q_normal * edge_length;
             Q_out += Q_ele;
-            q_out += q;
-            cout << "element no: " << j_ele << ", Q: " << Q_ele << "; flux rate:" << q << "\n";
+
             outlet_A++;
         }
     }
-    std::cout << "\n\nQ_in: " << Q_in << ", trace length: " << length_in << "; "
+
+    std::cout << "\n\nQ_in: " << Q_in << ", trace length: " << length_in << "; \n"
               << "Q_out: " << Q_out << ", trace length: " << length_out << "; " << std::endl;
-    std::cout << "q_in: " << q_in << ", q_out: " << q_out << std::endl;
+    std::cout << "q_in_avg: " << q_in_avg << ", \nq_out_avg: " << q_out_avg << std::endl;
+    std::cout << "q_in_overall: " << q_in_overall << ", \nq_out_overall: " << q_out_overall << std::endl;
 };
 
+inline void FEM_DFN::Calculate_flux_of_A_Boun_ele(DFN::DFN_mesh DFN_mesh,
+                                                  double *X_overall,
+                                                  double K_coe,
+                                                  size_t s_ifrac,
+                                                  size_t s_jele,
+                                                  size_t EdgeNO,
+                                                  std::vector<std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>>> &SF,
+                                                  size_t NumOfPnt_q)
+{
+    Eigen::VectorXd h_e;
+    h_e = Eigen::VectorXd::Zero(6);
+    for (size_t yj = 0; yj < 6; ++yj)
+    {
+        size_t node_ID = DFN_mesh.JM[s_ifrac][s_jele](yj);
+        int Id_guide = DFN_mesh.Coe_Matr_guide[s_ifrac][node_ID](0);
+        if (Id_guide == -1)
+        {
+            size_t i_frac = DFN_mesh.Coe_Matr_guide[s_ifrac][node_ID](1);
+            size_t j_node = DFN_mesh.Coe_Matr_guide[s_ifrac][node_ID](2);
+            Id_guide = DFN_mesh.Coe_Matr_guide[i_frac][j_node](0);
+            if (Id_guide == -1)
+            {
+                cout << "Error! find wrong repetitive point!\n";
+                exit(0);
+            }
+            h_e[yj] = X_overall[Id_guide];
+        }
+        else
+        {
+            h_e[yj] = X_overall[Id_guide];
+        }
+    }
+
+    std::vector<Vector3d> RMK;
+    Vector3d AS, BS;
+    AS << 1, 0, 0;
+    BS << 0, 1, 0;
+
+    binary_linear_equation(AS,
+                           BS,
+                           NumOfPnt_q + 1,
+                           RMK);
+    for (size_t i = 0; i < NumOfPnt_q; ++i)
+    {
+        double xi, eta;
+        if (EdgeNO == 0)
+        {
+            xi = 1. / (NumOfPnt_q + 1) * i;
+            eta = 0;
+        }
+        else if (EdgeNO == 1)
+        {
+            xi = RMK[i](0);
+            eta = RMK[i](1);
+        }
+        else if (EdgeNO == 2)
+        {
+            xi = 0;
+            eta = 1. / (NumOfPnt_q + 1) * i;
+        }
+        else
+        {
+            std::cout << "Edge NO of an element should be 0, 1 or 2 only!\n";
+            exit(0);
+        }
+
+        Vector3d pnt0 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](0)], pnt2 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](2)], pnt4 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](4)];
+        Vector3d pnt1 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](1)], pnt3 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](3)], pnt5 = DFN_mesh.JXY[s_ifrac][DFN_mesh.JM[s_ifrac][s_jele](5)];
+
+        Eigen::VectorXd x_e, y_e;
+        x_e = Eigen::VectorXd::Zero(6);
+        y_e = x_e;
+        x_e << pnt0(0), pnt1(0), pnt2(0), pnt3(0), pnt4(0), pnt5(0);
+        y_e << pnt0(1), pnt1(1), pnt2(1), pnt3(1), pnt4(1), pnt5(1);
+
+        Eigen::RowVectorXd p_N_p_x, p_N_p_y;
+        p_N_p_x = Eigen::RowVectorXd::Zero(6);
+        //p_N_p_x = Eigen::RowVectorXd::Zero(3);
+        p_N_p_y = p_N_p_x;
+
+        Eigen::VectorXd pd_N_over_pd_xi, pd_N_over_pd_eta;
+        pd_N_over_pd_xi = Eigen::VectorXd::Zero(6);
+        pd_N_over_pd_eta = pd_N_over_pd_xi;
+
+        double N_natural_a_1 = 4 * xi + 4 * eta - 3;
+        double N_natural_a_2 = 4 * xi - 1;
+        double N_natural_a_3 = 0;
+        double N_natural_a_4 = 4 - 8 * xi - 4 * eta;
+        double N_natural_a_5 = 4 * eta;
+        double N_natural_a_6 = -4 * eta;
+
+        //1 - 4 - 2 -5 -3 - 6
+        pd_N_over_pd_xi << N_natural_a_1, N_natural_a_4, N_natural_a_2, N_natural_a_5, N_natural_a_3, N_natural_a_6;
+
+        double N_natural_b_1 = 4 * xi + 4 * eta - 3;
+        double N_natural_b_2 = 0;
+        double N_natural_b_3 = 4 * eta - 1;
+        double N_natural_b_4 = -4 * xi;
+        double N_natural_b_5 = 4 * xi;
+        double N_natural_b_6 = 4 - 8 * eta - 4 * xi;
+        //1 - 4 - 2 -5 -3 - 6
+        pd_N_over_pd_eta << N_natural_b_1, N_natural_b_4, N_natural_b_2, N_natural_b_5, N_natural_b_3, N_natural_b_6;
+
+        Eigen::VectorXd pd_x_over_pd_xi, pd_x_over_pd_eta, pd_y_over_pd_xi, pd_y_over_pd_eta;
+        pd_x_over_pd_xi = Eigen::VectorXd::Zero(6);
+        pd_x_over_pd_eta = pd_x_over_pd_xi;
+        pd_y_over_pd_xi = pd_x_over_pd_xi;
+        pd_y_over_pd_eta = pd_x_over_pd_xi;
+
+        pd_x_over_pd_xi = pd_N_over_pd_xi.transpose() * x_e;
+        pd_x_over_pd_eta = pd_N_over_pd_eta.transpose() * x_e;
+
+        pd_y_over_pd_xi = pd_N_over_pd_xi.transpose() * y_e;
+        pd_y_over_pd_eta = pd_N_over_pd_eta.transpose() * y_e;
+
+        Eigen::MatrixXd Jacobi;
+        Jacobi = Eigen::MatrixXd::Zero(2, 2);
+        Jacobi << pd_x_over_pd_xi, pd_y_over_pd_xi, pd_x_over_pd_eta, pd_y_over_pd_eta;
+
+        Eigen::MatrixXd tem_o;
+        tem_o = Eigen::MatrixXd::Zero(2, pd_N_over_pd_xi.rows());
+        for (size_t op = 0; op < (size_t)tem_o.cols(); ++op)
+        {
+            tem_o(0, op) = pd_N_over_pd_xi(op);
+            tem_o(1, op) = pd_N_over_pd_eta(op);
+        }
+
+        Eigen::MatrixXd AAA;
+        AAA = Jacobi.inverse() * tem_o;
+
+        for (size_t op = 0; op < 6; ++op)
+        {
+            p_N_p_x(op) = AAA(0, op);
+            p_N_p_y(op) = AAA(1, op);
+        }
+
+        double qx_2d = -K_coe * p_N_p_x * h_e; // qx = -delta h / delta x * k,  or say, qx = - ix * k
+        double qy_2d = -K_coe * p_N_p_y * h_e;
+
+        double N1 = (1 - xi - eta) * (1 - 2 * xi - 2 * eta);
+        double N2 = xi * (2 * xi - 1);
+        double N3 = eta * (2 * eta - 1);
+        double N4 = 4 * xi * (1 - xi - eta);
+        double N5 = 4 * xi * eta;
+        double N6 = 4 * eta * (1 - xi - eta);
+
+        Eigen::VectorXd N;
+        N = Eigen::VectorXd::Zero(6);
+        N << N1, N4, N2, N5, N3, N6;
+        Vector3d Pnt_t_2d, q_2d, Pnt_t_3d, q_3d;
+        Pnt_t_2d << x_e.dot(N), y_e.dot(N), 0;
+        Pnt_t_3d = Pnt_t_2d;
+        q_2d << qx_2d, qy_2d, 0;
+        q_3d = q_2d;
+
+        //-----rotation to 3D
+        double R_angle_temp1 = DFN_mesh.Rota_angle[s_ifrac].first(0);
+        Vector3d Frac_center;
+        Frac_center << DFN_mesh.Rota_angle[s_ifrac].first(1), DFN_mesh.Rota_angle[s_ifrac].first(2), DFN_mesh.Rota_angle[s_ifrac].first(3);
+        Vector3d temp3;
+        temp3 << DFN_mesh.Rota_angle[s_ifrac].second(3), DFN_mesh.Rota_angle[s_ifrac].second(4), DFN_mesh.Rota_angle[s_ifrac].second(5);
+        Vector3d Normal_frac;
+        Normal_frac << DFN_mesh.Rota_angle[s_ifrac].second(0), DFN_mesh.Rota_angle[s_ifrac].second(1), DFN_mesh.Rota_angle[s_ifrac].second(2);
+
+        if (abs(Normal_frac(0)) < 0.0001 && abs(Normal_frac(1)) < 0.0001 && abs(Normal_frac(2)) < 0.0001)
+        {
+            //nothing to do
+            Pnt_t_3d += Frac_center;
+        }
+        else
+        {
+            Quaternion_t Q_axis_1;
+            NormalizeRotation(R_angle_temp1, temp3, Q_axis_1);
+
+            Vector3d temp4;
+            Rotation(q_3d, Q_axis_1, temp4);
+            q_3d = temp4;
+
+            Vector3d temp5;
+            Rotation(Pnt_t_3d, Q_axis_1, temp5);
+            Pnt_t_3d = temp5 + Frac_center;
+        }
+
+        std::pair<std::pair<Vector3d, Vector3d>, std::pair<Vector3d, Vector3d>> RT;
+        RT.first.first = Pnt_t_2d;
+        RT.first.second = q_2d;
+        RT.second.first = Pnt_t_3d;
+        RT.second.second = q_3d;
+        SF[i] = RT;
+    }
+};
 }; // namespace DFN

@@ -1,5 +1,5 @@
-0.2          = ratio of tri-ele length to minimum fracture size
-25.5          = minimum fracture size, the radius of fracture
+0.1          = ratio of tri-ele length to minimum fracture size
+20.5          = minimum fracture size, the radius of fracture
 1                 = number_of_threads
 1                = loop_times
 1			= which_model_shown_to_us
@@ -11,15 +11,15 @@
 fisher             = orientation distribution
 single  	 = fracture size distribution
 z               	= percolation_direction
-30
+35
 1
 89
-89
+75
 39
 88
 90
-88
-89.9
+74
+78
 
 
 
